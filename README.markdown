@@ -16,7 +16,7 @@ then do it when-ya need it.
          Nik.bootWith(<YOUR_WORDNIK_APIKEY_HERE>);
          
          // functional style
-         Nik.Word.definitions("",{
+         Nik.Word.definitions("channel cat",{
             sourceDictionary: "wordnet"
             callback: function(data) {
                console.log(data);
