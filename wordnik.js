@@ -1,5 +1,7 @@
 (function(){
     
+    /* add local database storage for persistent lookups (reduce api usage) */
+    
     /* if only console existed everywhere */
     if(console === undefined) { console = {}; console.log = function() {}; }
     
@@ -48,10 +50,13 @@
     
     /* wrappers around ajax calls to wordnik's api (json) */
     
+    var _queuer = undefined; // timeout function for batches
+    
     __n.io = {
         _loading: {}, // what is currently loading
         _loaded: {}, // what has already loaded,
         _waiters: {},
+        _queue: [], // for batch responses
         /* main get function, allows simultaneous requests of single resource */
         get: function(params) {
             var callback = params.callback,
@@ -59,15 +64,31 @@
             // now we determine when/where we serve the data
             if(this._loaded[url]) { // truthy (data is already here!)
                 params.callback(this._loaded[url]); // so just ship it!
-                return;
-            }
-            if(this._loading[url] === true) { // someone has already requested this
-                this._waiters[url].push(params.callback); // so we'll send it to you
-                return;
             }
             else {
-                this.request(url,{ api_key: config.api_key },params.callback);
+                if(this._waiters[url] === undefined) {
+                    this._waiters[url] = [];
+                }
+                // no matter the request status, we push the callback
+                this._waiters[url].push(params.callback);
+                if(this._loading[url] !== true) {
+                    this._loading[url] = true; // let other requesters know we're busy
+                    if(params.page === "word") {
+                        this._queue.push(url);
+                        // kill previous attempts to load batch
+                        clearTimeout(_queuer);
+                        // now do your best to load it!
+                        var that = this;
+                        _queuer = setTimeout(function(){
+                            that.clearRequestQueue();
+                        },5);
+                    }
+                    else {
+                        that.request(url);
+                    }
+                }
             }
+            //that.request(url,{ api_key: config.api_key },params.callback);
         },
         buildUrl: function(params) {
             var url = [];
@@ -96,18 +117,13 @@
             console.log(url);
             return url;
         },
-        request: function(url,data,callback) {
-            // let everybody know we're in the async process
-            this._loading[url] = true;
-            this._waiters[url] = [];
-            this._waiters[url].push(callback);
-            // now the actual ajax
+        request: function(url) {
             var that = this;
             $.ajax({ // the actual jquery get request
                 url: url,
                 type: "GET",
                 dataType: "jsonp",
-                data: data,
+                data: { api_key: config.api_key },
                 success: function(data) {
                     that.process(url,data);
                 },
@@ -117,6 +133,37 @@
                 }
             });
         },
+        clearRequestQueue: function() {
+            // make a copy of the queue
+            var queue = this._queue,
+                length = queue.length,
+                batchUrl = APIBASEURL+"/word.json?multi&",
+                that = this;
+            this.queue = []; // empty the queue, let it build up again
+            if(length === 1) {
+                this.request(queue[0]);
+                return;
+            }
+            // while this is emptying
+            // now we build the batch request url
+            for(var i = 0; i < length; i += 1) {
+                // requires some fairly complicated queryString rewriting
+                var index = i + 1, // wordnik string indexing is 1,2,3
+                    stub = queue[i].replace(APIBASEURL+"/word.json/","");
+                batchUrl += "resource."+index+"="+stub+"&";
+            }
+            $.ajax({
+                url: batchUrl.slice(0,-1),
+                type: "GET",
+                dataType: "jsonp",
+                data: { api_key: config.api_key },
+                success: function(data) {
+                    that.processBatch(queue,data);
+                }
+            });
+            // once you get back the concat request
+            // run "process" on each url, with the reconstituted long url
+        },
         process: function(url,data) {
             this._loaded[url] = data;
             this._loading[url] = false;
@@ -124,7 +171,15 @@
             for(var i = 0; i < waiters.length; i += 1) {
                 waiters[i](data);
             }
-            this._waiters[url];
+            this._waiters[url] = [];
+        },
+        processBatch: function(queue,response) {
+            var responseItems = response.responseItems,
+                length = responseItems.length,
+                that = this;
+            for(var i = 0; i < length; i += 1) {
+                that.process(queue[i],responseItems[i].responseContent);
+            }
         }
     };
     
@@ -245,5 +300,12 @@
         }
     };
     
+    // additional helpful static text functions
+    // tokenize
+    __n.Appendix = {
+        tokenize: function(text) {
+            
+        }
+    };
     
 })();
