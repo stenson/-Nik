@@ -114,7 +114,6 @@
             }
             // now we determine when/where we serve the data
             if(useLocalStorage && localStorage.getItem(url) !== null) {
-                console.log("getting from local");
                 callback(JSON.parse(localStorage.getItem(url)));
             }
             else if(this._loaded[url]) { // truthy (data is already here!)
@@ -158,9 +157,9 @@
                     url.push(pathSegment);
                 }
             });
-            delete params.page;
-            delete params.word;
-            delete params.method;
+            delete params.page; // not part of querystring
+            delete params.word; // not part of querystring
+            delete params.method; // not part of querystring
             url = url.join("/"); // what we'll use in the hash
             // additionals parameters create a different resource, so...
             // we'll have to add them in (alphabetically) to get a true unique url-key
@@ -249,23 +248,33 @@
     
     /*
         Wordnik methods that are kinda global namespace-ish
+        and all pretty similar
     */
     
-    __n.randomWord = function(params) {
-        params = detectCallback(params);
-        params.page = "words";
-        params.method = "randomWord";
-        params.fresh = true;
-        __n.io.get(params);
-    };
-    
-    // params.limit (optional, defaults to 5)
-    __n.randomWords = function(params) {
-        params = detectCallback(params);
-        params.page = "words";
-        params.method = "randomWords";
-        __n.io.get(params);
-    };
+    var globalFunctions = [
+        {
+            method: "randomWord",
+            page: "words",
+            fresh: true
+        },{
+            method: "randomWords",
+            page: "words",
+            fresh: true
+        },{
+            method: "apiTokenStatus",
+            page: "account",
+            fresh: true
+        }
+    ];
+    iterate(globalFunctions,function(i,info){
+        __n[info.method] = function(params) {
+            params = detectCallback(params);
+            params.page = info.page;
+            params.method = info.method;
+            params.fresh = info.fresh;
+            __n.io.get(params);
+        };
+    });
     
     __n.dictionary = {}; // word objects that we've created
     
@@ -326,25 +335,6 @@
             };
         }
     );
-    
-    /*
-        In-code reference on applicable parameters for different functions
-    */
-    // for global functions
-    __n.applicables = {
-        randomWord: {
-            hasDictionaryDef:"<Boolean>"
-        },
-        randomWords: {
-            hasDictionaryDef:"<Boolean>"
-        }
-    };
-    // for word functions
-    __n.applicables.Word = {
-        definitions: {
-            sourceDictionary:"<enum>"
-        }
-    };
     
     // additional helpful static text functions
     // tokenize
