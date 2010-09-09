@@ -96,8 +96,8 @@
     
     __n.io = {
         _loading: {}, // what is currently loading
-        _loaded: {}, // what has already loaded,
-        _waiters: {},
+        _loaded: {}, // what has already loaded
+        _waiters: {}, // callbacks associated with in-progress download
         _queue: [], // for batch responses
         /* main get function, allows simultaneous requests of single resource */
         get: function(_params) {
@@ -161,10 +161,9 @@
             delete params.page; // not part of querystring
             delete params.word; // not part of querystring
             delete params.method; // not part of querystring
-            url = url.join("/"); // what we'll use in the hash
+            url = url.join("/")+"?"; // what we'll use in the hash
             // additionals parameters create a different resource, so...
             // we'll have to add them in (alphabetically) to get a true unique url-key
-            url += "?";
             var sorted = sortObjectByProperty(params);
             for(var i = 0; i < sorted.length; i += 1) {
                 url += sorted[i][0]+"="+sorted[i][1]+"&";
@@ -277,10 +276,19 @@
         };
     });
     
+    // more global functions (less easy to write meta-ly)
+    
     __n.autocomplete = function(fragment,params) {
         params = detectCallback(params);
         params.page = "suggest";
         params.word = fragment;
+        __n.io.get(params);
+    };
+    
+    __n.wordOfTheDay = function(params) {
+        params = detectCallback(params);
+        params.page = "wordoftheday";
+        params.fresh = true;
         __n.io.get(params);
     };
     
