@@ -49,6 +49,8 @@
         }
     };
     
+    // alphabetizes by key
+    // { dog:"walk", cat:"prowl" } becomes [["cat","prowl"],["dog","walk"]];
     var sortObjectByProperty = function(object) {
         var sortable = [];
         for(var o in object) {
@@ -57,6 +59,16 @@
         return sortable.sort();
     };
     
+    // just does a deep copy, since js is reference-passing
+    var cloneObject = function(object) {
+        var clone = {};
+        for(var o in object) {
+            clone[o] = object[o];
+        }
+        return clone;
+    };
+    
+    // allows params hash to be just a function, if you don't want to pass params
     var detectCallback = function(params) {
         if(params === undefined) {
             params = {};
@@ -85,31 +97,38 @@
         _waiters: {},
         _queue: [], // for batch responses
         /* main get function, allows simultaneous requests of single resource */
-        get: function(params) {
-            var fresh = params.fresh;
-            delete params.fresh;
-            var callback = params.callback,
-                url = this.buildUrl(params);
+        get: function(_params) {
+            var params = cloneObject(_params),
+                fresh = params.fresh,
+                callback = params.callback,
+                page = params.page;
+            delete params.fresh; // not relevant to url
+            delete params.callback; // not relevant to url
+            // now get the unique url, which will serve as the key
+            var url = this.buildUrl(params);
             if(fresh === true) {
-                
+                delete this._loaded[url];
+                if(useLocalStorage) {
+                    localStorage.removeItem(url);
+                }
             }
             // now we determine when/where we serve the data
             if(useLocalStorage && localStorage.getItem(url) !== null) {
                 console.log("getting from local");
-                params.callback(JSON.parse(localStorage.getItem(url)));
+                callback(JSON.parse(localStorage.getItem(url)));
             }
             else if(this._loaded[url]) { // truthy (data is already here!)
-                params.callback(this._loaded[url]); // so just ship it!
+                callback(this._loaded[url]); // so just ship it!
             }
             else {
                 if(this._waiters[url] === undefined) {
                     this._waiters[url] = [];
                 }
                 // no matter the request status, we push the callback
-                this._waiters[url].push(params.callback);
+                this._waiters[url].push(callback);
                 if(this._loading[url] !== true) {
                     this._loading[url] = true; // let other requesters know we're busy
-                    if(params.page === "word") {
+                    if(page === "word") {
                         this._queue.push(url);
                         // kill previous attempts to load batch
                         clearTimeout(_queuer);
@@ -120,7 +139,7 @@
                         },5); // just jumping the thread here
                     }
                     else {
-                        that.request(url);
+                        this.request(url);
                     }
                 }
             }
@@ -139,17 +158,18 @@
                     url.push(pathSegment);
                 }
             });
+            delete params.page;
+            delete params.word;
+            delete params.method;
             url = url.join("/"); // what we'll use in the hash
             // additionals parameters create a different resource, so...
-            // we'll have to add them in (alphabetically) to get a true unique id
-            if(params.additionals !== undefined) {
-                url += "?";
-                var sorted = sortObjectByProperty(params.additionals);
-                for(var i = 0; i < sorted.length; i += 1) {
-                    url += sorted[i][0]+"="+sorted[i][1]+"&";
-                }
-                url = url.slice(0,-1); // get rid of last &
+            // we'll have to add them in (alphabetically) to get a true unique url-key
+            url += "?";
+            var sorted = sortObjectByProperty(params);
+            for(var i = 0; i < sorted.length; i += 1) {
+                url += sorted[i][0]+"="+sorted[i][1]+"&";
             }
+            url = url.slice(0,-1); // get rid of last &
             console.log(url);
             return url;
         },
@@ -233,33 +253,18 @@
     
     __n.randomWord = function(params) {
         params = detectCallback(params);
-        if(params.guaranteeUnique === true) {
-            delete params.guaranteeUnique;
-            params._unique = Math.round(Math.random()*10000001);
-        }
-        var callback = params.callback,
-            getOpts = {
-                page: "words",
-                method: "randomWord",
-                callback: callback,
-                additionals: params
-            };
-        delete params.callback;
-        // cache clearer (could be its own function)
-        delete __n.io._loaded[__n.io.buildUrl(getOpts)];
-        __n.io.get(getOpts);
+        params.page = "words";
+        params.method = "randomWord";
+        params.fresh = true;
+        __n.io.get(params);
     };
     
-    __n.randomWords = function(howMany,params) {
-        if(howMany === undefined) {
-            howMany = 5;
-        }
+    // params.limit (optional, defaults to 5)
+    __n.randomWords = function(params) {
         params = detectCallback(params);
-        __n.io.get({
-            page: "words",
-            method: "randomWords",
-            callback: params.callback
-        });
+        params.page = "words";
+        params.method = "randomWords";
+        __n.io.get(params);
     };
     
     __n.dictionary = {}; // word objects that we've created
@@ -278,22 +283,15 @@
     __n.Word.prototype = {
         _genericGet: function(params) {
             // swap out non url parameters
-            var additionals = params,
-                callback = params.callback,
-                method = params.method;
-            delete params.method;
-            delete params.callback;
-            var that = this;
-            __n.io.get({
-                page: "word",
-                word: this.word,
-                method: method,
-                additionals: additionals,
-                callback: function(data) {
-                    that[method] = data;
-                    callback(data);
-                }
-            });
+            var that = this,
+                callback = params.callback;
+            params.word = this.word;
+            params.page = "word";
+            params.callback = function(data) {
+                that[params.method] = data;
+                callback(data);
+            };
+            __n.io.get(params);
         }
     };
     
