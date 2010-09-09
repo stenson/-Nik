@@ -19,9 +19,7 @@
         config.api_key = params.api_key; // store it
     };
     
-    /*
-        helper functions
-    */
+    /* helper functions */
     
     /*
         mask ajax/remote file calls for jQuery (client) and node.js (server)
@@ -30,8 +28,9 @@
         if(jQuery !== undefined) { // we have jQuery
             $.ajax(params); // just masking the call
         }
-        else { // test for node stuff
+        else {
             console.log("we do not have jQuery");
+            // not yet supported
         }
     };
     
@@ -70,7 +69,9 @@
     
     /* wrappers around ajax calls to wordnik's api (json) */
     
-    var _queuer = undefined; // timeout function for batches
+    var _queuer = undefined, // timeout function for batches
+        // jacked this from http://www.modernizr.com/
+        hasLocalStorage = ('localStorage' in window) && window["localStorage"] !== null;
     
     __n.io = {
         _loading: {}, // what is currently loading
@@ -82,7 +83,10 @@
             var callback = params.callback,
                 url = this.buildUrl(params);
             // now we determine when/where we serve the data
-            if(this._loaded[url]) { // truthy (data is already here!)
+            if(hasLocalStorage && localStorage.getItem(url) !== null) {
+                params.callback(JSON.parse(localStorage.getItem(url)));
+            }
+            else if(this._loaded[url]) { // truthy (data is already here!)
                 params.callback(this._loaded[url]); // so just ship it!
             }
             else {
@@ -192,6 +196,7 @@
                 waiters[i](data);
             }
             this._waiters[url] = [];
+            this.putInStorage(url,data);
         },
         processBatch: function(queue,response) {
             var responseItems = response.responseItems,
@@ -200,6 +205,11 @@
             for(var i = 0; i < length; i += 1) {
                 // process each one individually
                 that.process(queue[i],responseItems[i].responseContent);
+            }
+        },
+        putInStorage: function(url,data) {
+            if(hasLocalStorage) {
+                localStorage.setItem(url,JSON.stringify(data));
             }
         }
     };
@@ -254,7 +264,6 @@
     
     __n.Word.prototype = {
         _genericGet: function(params) {
-            params = detectCallback(params);
             // swap out non url parameters
             var additionals = params,
                 callback = params.callback,
@@ -275,6 +284,8 @@
         }
     };
     
+    __n.word = { }; // namespace for functional approach
+    
     /*
         dynamically write sugar functions for wordnik method names
     */
@@ -293,13 +304,14 @@
         
             // first is the object-oriented (the real one)
             __n.Word.prototype[methodName] = function(params) {
+                params = detectCallback(params);
                 params.method = method;
                 this._genericGet(params);
             };
         
             // second is the functional rewrite
-            __n.Word[method] = function(word,additionals) {
-                return new __n.Word(word)[methodName](additionals || {});
+            __n.word[method] = function(word,params) {
+                return new __n.Word(word)[methodName](params || {});
             };
         }
     );
