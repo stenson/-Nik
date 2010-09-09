@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <script src="jquery.js"></script> <!-- whatever this may be for you -->
+    <script src="nik.js"></script>
+    <script>
+      // boot the 'Nik
+      Nik.bootWith({
+         api_key: "<YOUR_API_KEY_HERE,_HOMIE>",
+         useLocalStorage: true // defaults to true, saves responses as json to local storage
+      });
+      // now do something
+      $(function(){
+         // these two will be batched as a single http request
+         // since they're requested in rapid succession
+         Nik.word.definitions("cat",function(definitions){
+            var container = $("div#container");
+            $.each(definitions,function(i,definition){
+               container.append($("<h5>",{
+                  text: definition.text;
+               }));
+            });
+         });
+         Nik.word.examples("cat"); // no callback defined, will write results to console
+      });
+    </script>
+  </head>
+  <body>
+    <div id="container" class="clearfix">
+     <!-- content shows up here -->
+    </div>
+  </body>
+</html>

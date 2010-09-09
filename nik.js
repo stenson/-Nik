@@ -8,15 +8,23 @@
     var __n = Nik = {},
         APIBASEURL = "http://api.wordnik.com/api",
         BASEURL = "http://wordnik.com/words",
-        config = {};
+        config = {},
+        // adapted from modernizr
+        hasLocalStorage = ('localStorage' in window) && window["localStorage"] !== null,
+        useLocalStorage = undefined;
     /*
         params.api_key - your api key for wordnik - (required, very much so)
+        params.useLocalStorage
     */
     __n.bootWith = function(params) {
         if(params.api_key === undefined) {
             throw("APIKeyException");
         }
-        config.api_key = params.api_key; // store it
+        config = params; // user preferences
+        if(config.useLocalStorage === undefined) {
+            config.useLocalStorage = true;
+        }
+        useLocalStorage = hasLocalStorage && config.useLocalStorage === true;
     };
     
     /* helper functions */
@@ -69,9 +77,7 @@
     
     /* wrappers around ajax calls to wordnik's api (json) */
     
-    var _queuer = undefined, // timeout function for batches
-        // jacked this from http://www.modernizr.com/
-        hasLocalStorage = ('localStorage' in window) && window["localStorage"] !== null;
+    var _queuer = undefined; // timeout function for batches
     
     __n.io = {
         _loading: {}, // what is currently loading
@@ -80,10 +86,16 @@
         _queue: [], // for batch responses
         /* main get function, allows simultaneous requests of single resource */
         get: function(params) {
+            var fresh = params.fresh;
+            delete params.fresh;
             var callback = params.callback,
                 url = this.buildUrl(params);
+            if(fresh === true) {
+                
+            }
             // now we determine when/where we serve the data
-            if(hasLocalStorage && localStorage.getItem(url) !== null) {
+            if(useLocalStorage && localStorage.getItem(url) !== null) {
+                console.log("getting from local");
                 params.callback(JSON.parse(localStorage.getItem(url)));
             }
             else if(this._loaded[url]) { // truthy (data is already here!)
@@ -208,6 +220,7 @@
             }
         },
         putInStorage: function(url,data) {
+            // if we can, might as well, right? (may change)
             if(hasLocalStorage) {
                 localStorage.setItem(url,JSON.stringify(data));
             }
