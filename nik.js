@@ -2,9 +2,6 @@
     
     /* add local database storage for persistent lookups (reduce api usage) */
     
-    /* if only console existed everywhere */
-    if(console === undefined) { console = {}; console.log = function() {}; }
-    
     var __n = Nik = {},
         APIBASEURL = "http://api.wordnik.com/api",
         BASEURL = "http://wordnik.com/words",
@@ -37,9 +34,15 @@
             $.ajax(params); // just masking the call
         }
         else {
-            console.log("we do not have jQuery");
+            log("we do not have jQuery");
             // not yet supported
         }
+    };
+    
+    var log = function(message) {
+        try {
+            console.log(message);
+        } catch(e) { }
     };
     
     var iterate = function(array,callback) {
@@ -81,7 +84,7 @@
         // now drop in a generic callback if there isn't one
         if(params.callback === undefined) {
             params.callback = function(data) {
-                console.log(data);
+                log(data);
             };
         }
         return params;
@@ -120,9 +123,7 @@
                 callback(this._loaded[url]); // so just ship it!
             }
             else {
-                if(this._waiters[url] === undefined) {
-                    this._waiters[url] = [];
-                }
+                if(this._waiters[url] === undefined) { this._waiters[url] = []; }
                 // no matter the request status, we push the callback
                 this._waiters[url].push(callback);
                 if(this._loading[url] !== true) {
@@ -169,7 +170,7 @@
                 url += sorted[i][0]+"="+sorted[i][1]+"&";
             }
             url = url.slice(0,-1); // get rid of last &
-            console.log(url);
+            log(url);
             return url;
         },
         request: function(url) {
@@ -183,8 +184,8 @@
                     that.process(url,data);
                 },
                 error: function(data) {
-                    console.log("ERROR");
-                    console.log(data);
+                    log("ERROR");
+                    log(data);
                 }
             });
         },
@@ -275,6 +276,13 @@
             __n.io.get(params);
         };
     });
+    
+    __n.autocomplete = function(fragment,params) {
+        params = detectCallback(params);
+        params.page = "suggest";
+        params.word = fragment;
+        __n.io.get(params);
+    };
     
     __n.dictionary = {}; // word objects that we've created
     
