@@ -10,7 +10,7 @@ very much not really ready for use, initial stages
 * cool things:
     * automatic batching
     * functional, or object-oriented
-    * only uses jQuery for ajax-in, so you can map to another library's ajax function
+    * only uses jQuery for ajax-in, so you can map to another library's ajax function with Nik.ajaxTranslate(function(params){ /* your mapping */ })
 
 to use:
 

@@ -9,6 +9,10 @@
       Nik.bootWith({
          api_key: "<YOUR_API_KEY_HERE,_HOMIE>"
       });
+      // translate to a different ajax library (here it's just jQuery, which is the default)
+      Nik.ajaxTranslate(function(params){
+          $.ajax(params);
+      });
       // now do something
       $(function(){
          // these two will be batched as a single http request

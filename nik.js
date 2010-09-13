@@ -8,7 +8,8 @@
         config = {},
         // adapted from modernizr
         hasLocalStorage = ('localStorage' in window) && window["localStorage"] !== null,
-        useLocalStorage = undefined;
+        useLocalStorage = undefined,
+        ajaxTranslator = undefined;
     /*
         params.api_key - your api key for wordnik - (required, very much so)
         params.useLocalStorage
@@ -24,18 +25,36 @@
         useLocalStorage = hasLocalStorage && config.useLocalStorage === true;
     };
     
+    /*
+        you provide an ajax function that maps the jQuery params
+        to your library-of-choice's generic ajax function, I guess...
+        so you get this:
+        {
+            url: url of the resource, with some querystring parameters
+            data: more querystring parameters to be added to the url
+            success: a function to be called on successful transmission
+            type: will always be "GET" for now
+            dataType: will always be "jsonp"
+        }
+    */
+    __n.ajaxTranslate = function(translator) {
+        ajaxTranslator = translator;
+    };
+    
     /* helper functions */
     
     /*
         mask ajax/remote file calls for jQuery (client) and node.js (server)
     */
     var remoteRead = function(params) {
-        if(jQuery !== undefined) { // we have jQuery
+        if(ajaxTranslator !== undefined) {
+            ajaxTranslator(params);
+        }
+        else if(jQuery !== undefined) { // we have jQuery
             $.ajax(params); // just masking the call
         }
         else {
-            log("we do not have jQuery");
-            // not yet supported
+            log("no ajax support -- use either jQuery or provide a translator");
         }
     };
     
@@ -181,10 +200,6 @@
                 data: { api_key: config.api_key },
                 success: function(data) {
                     that.process(url,data);
-                },
-                error: function(data) {
-                    log("ERROR");
-                    log(data);
                 }
             });
         },
