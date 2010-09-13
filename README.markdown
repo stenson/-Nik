@@ -7,13 +7,21 @@ really just kind of a syntax-niceifier.
 very much not really ready for use, initial stages
 ---------------------------------------
 
+* cool things:
+    * automatic batching
+    * functional, or object-oriented
+    * only uses jQuery for ajax-in, so you can map to another library's ajax function
+
 to use:
 
 include a jquery (recent),
 then do it when-ya need it.
 
       $(function(){
-         Nik.bootWith(<YOUR_WORDNIK_APIKEY_HERE>);
+          Nik.bootWith({
+              api_key: "YOUR_API_KEY_HERE",
+              useLocalStorage: true
+          });
          
          // functional style
          Nik.Word.definitions("channel cat",{
